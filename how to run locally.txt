@@ -1,7 +1,9 @@
-backend
-cd C:\Users\joohu\claude_workspace\korean-tax-poc\backend
+Backend
+-------
+cd <project-root>/backend
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-frontend: 
-cd C:\Users\joohu\claude_workspace\korean-tax-poc\frontend
-npm run dev and get frontend URL
+Frontend
+--------
+cd <project-root>/frontend
+npm run dev
