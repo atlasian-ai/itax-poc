@@ -6,7 +6,8 @@ A proof-of-concept tool for managing Korean NTS (국세청) corporate tax forms 
 
 ## Screenshot
 
-> _Add a screenshot here — e.g. `docs/screenshot.png` — showing the main form entry view._
+<img width="1912" height="907" alt="image" src="https://github.com/user-attachments/assets/ba189f62-cb0f-4b0f-ae01-30fc46f9a3d5" />
+
 
 ---
 
