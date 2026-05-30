@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>법인세 신고 도구</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; animation: spin 1s linear infinite; }
+
+    /* ── Light theme (default) ── */
+    :root {
+      --c-app-bg:        #f8fafc;
+      --c-sidebar-bg:    #0f172a;
+      --c-sidebar-border:#1e293b;
+      --c-topbar-bg:     #ffffff;
+      --c-topbar-border: #f1f5f9;
+      --c-card-bg:       #ffffff;
+      --c-card-border:   #e2e8f0;
+      --c-text-primary:  #0f172a;
+      --c-text-secondary:#475569;
+      --c-text-muted:    #94a3b8;
+      --c-input-bg:      #ffffff;
+      --c-input-border:  #d1d5db;
+      --c-row-even:      #ffffff;
+      --c-row-odd:       #f8fafc;
+      --c-row-hover:     #f1f5f9;
+      --c-row-active:    #eff6ff;
+      --c-section-hdr-bg:#1e3a5f;
+      --c-section-hdr-fg:#ffffff;
+      --c-modal-bg:      #ffffff;
+      --c-modal-overlay: rgba(0,0,0,.45);
+      --c-form-bg:       #f8fafc;
+      --c-meta-label-bg: #f1f5f9;
+      --c-divider:       #e2e8f0;
+      --c-badge-draft-bg:#64748b;
+      --c-badge-final-bg:#16a34a;
+      /* sidebar text/icon tokens (sidebar stays dark in light theme) */
+      --c-sidebar-text:      #e2e8f0;
+      --c-sidebar-logo:      #f1f5f9;
+      --c-sidebar-muted:     #475569;
+      --c-sidebar-icon:      #64748b;
+      --c-sidebar-item:      #94a3b8;
+      --c-sidebar-company:   #cbd5e1;
+      --c-sidebar-indent:    #1e3a5f;
+      --c-sidebar-active-bg: #1e3a5f;
+      --c-sidebar-active-text:#93c5fd;
+      --c-sidebar-add-btn-bg:#1e293b;
+      --c-sidebar-add-btn-border:#334155;
+      /* accent (primary action color) */
+      --c-accent:             #1d4ed8;
+      --c-accent-fg:          #ffffff;
+      --c-accent-subtle-bg:   #eff6ff;
+      --c-accent-subtle-text: #1d4ed8;
+      --c-accent-subtle-border:#bfdbfe;
+      --c-success:            #16a34a;
+    }
+
+    /* ── Dark theme ── */
+    [data-theme="dark"] {
+      --c-app-bg:        #0d1117;
+      --c-sidebar-bg:    #0d1117;
+      --c-sidebar-border:#21262d;
+      --c-topbar-bg:     #161b22;
+      --c-topbar-border: #21262d;
+      --c-card-bg:       #1c2128;
+      --c-card-border:   #30363d;
+      --c-text-primary:  #e6edf3;
+      --c-text-secondary:#8b949e;
+      --c-text-muted:    #6e7681;
+      --c-input-bg:      #1c2128;
+      --c-input-border:  #30363d;
+      --c-row-even:      #1c2128;
+      --c-row-odd:       #161b22;
+      --c-row-hover:     #21262d;
+      --c-row-active:    #1f2d3d;
+      --c-section-hdr-bg:#1f2d3d;
+      --c-section-hdr-fg:#79b8ff;
+      --c-modal-bg:      #1c2128;
+      --c-modal-overlay: rgba(0,0,0,.7);
+      --c-form-bg:       #0d1117;
+      --c-meta-label-bg: #161b22;
+      --c-divider:       #21262d;
+      --c-badge-draft-bg:#374151;
+      --c-badge-final-bg:#166534;
+      /* sidebar text/icon tokens (darker in dark theme) */
+      --c-sidebar-text:      #c9d1d9;
+      --c-sidebar-logo:      #e6edf3;
+      --c-sidebar-muted:     #484f58;
+      --c-sidebar-icon:      #6e7681;
+      --c-sidebar-item:      #8b949e;
+      --c-sidebar-company:   #c9d1d9;
+      --c-sidebar-indent:    #1f6feb;
+      --c-sidebar-active-bg: #1f2d3d;
+      --c-sidebar-active-text:#79b8ff;
+      --c-sidebar-add-btn-bg:#21262d;
+      --c-sidebar-add-btn-border:#30363d;
+      /* accent */
+      --c-accent:             #3b82f6;
+      --c-accent-fg:          #ffffff;
+      --c-accent-subtle-bg:   #1f2d3d;
+      --c-accent-subtle-text: #79b8ff;
+      --c-accent-subtle-border:#1e4080;
+      --c-success:            #22c55e;
+    }
+    /* ── EY-style accent button (Professional theme) ── */
+    .btn-accent {
+      position: relative;
+      overflow: hidden;
+    }
+    [data-theme="professional"] .btn-accent {
+      background: transparent !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255,255,255,0.45) !important;
+      border-left: none !important;
+    }
+    [data-theme="professional"] .btn-accent::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: linear-gradient(to bottom, #ff0096, #0057ff, #00c4aa, #ffe600);
+    }
+
+    /* ── Professional theme (EY-style: dark + yellow accent) ── */
+    [data-theme="professional"] {
+      --c-app-bg:        #1a1a24;
+      --c-topbar-bg:     #12121a;
+      --c-topbar-border: #2a2a38;
+      --c-card-bg:       #22222e;
+      --c-card-border:   #2e2e3e;
+      --c-text-primary:  #ffffff;
+      --c-text-secondary:#b0b0c0;
+      --c-text-muted:    #707088;
+      --c-input-bg:      #1a1a24;
+      --c-input-border:  #3a3a50;
+      --c-row-even:      #22222e;
+      --c-row-odd:       #1e1e2a;
+      --c-row-hover:     #2a2a3a;
+      --c-row-active:    #2a2a18;
+      --c-section-hdr-bg:#2a2a18;
+      --c-section-hdr-fg:#ffe600;
+      --c-modal-bg:      #22222e;
+      --c-modal-overlay: rgba(0,0,0,.75);
+      --c-form-bg:       #1a1a24;
+      --c-meta-label-bg: #22222e;
+      --c-divider:       #2e2e3e;
+      --c-badge-draft-bg:#3a3a50;
+      --c-badge-final-bg:#4a6a20;
+      /* sidebar */
+      --c-sidebar-bg:          #12121a;
+      --c-sidebar-border:      #2a2a38;
+      --c-sidebar-text:        #ffffff;
+      --c-sidebar-logo:        #ffe600;
+      --c-sidebar-muted:       #505068;
+      --c-sidebar-icon:        #707088;
+      --c-sidebar-item:        #a0a0b8;
+      --c-sidebar-company:     #e0e0f0;
+      --c-sidebar-indent:      #ffe600;
+      --c-sidebar-active-bg:   #2a2a18;
+      --c-sidebar-active-text: #ffe600;
+      --c-sidebar-add-btn-bg:  #1e1e2a;
+      --c-sidebar-add-btn-border:#3a3a50;
+      /* accent */
+      --c-accent:             #ffe600;
+      --c-accent-fg:          #12121a;
+      --c-accent-subtle-bg:   #2a2a18;
+      --c-accent-subtle-text: #ffe600;
+      --c-accent-subtle-border:#5a5a20;
+      --c-success:            #4ade80;
+    }
+  </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
