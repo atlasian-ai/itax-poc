@@ -38,7 +38,7 @@ export function PrintView({ template, entry, company, onClose }: Props) {
     setImgLoading(true)
     setImgError(null)
     let objUrl: string | null = null
-    fetch(`/api/forms/${template.id}/page-image?scale=2`)
+    fetch(`/api/forms/${template.id}/page-image?page=${template.page_start ?? 0}&scale=2`)
       .then((r) => {
         if (!r.ok) throw new Error('image fetch failed')
         return r.blob()
@@ -187,7 +187,7 @@ function OverlayView({
           const val = computed[f.id]
           if (val == null) return []
           return normBbox(f)
-            .filter((bbox) => bbox.page === 0)
+            .filter((bbox) => bbox.page === (template.page_start ?? 0))
             .map((bbox, bi) => (
               <div
                 key={`${f.id}-${bi}`}
