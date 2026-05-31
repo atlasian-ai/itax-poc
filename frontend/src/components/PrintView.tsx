@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { Company, FormTemplate, FormEntry } from '../types'
 import { useFormCalculation } from '../hooks/useFormCalculation'
 
@@ -9,9 +9,17 @@ interface Props {
   onClose: () => void
 }
 
+type Mode = 'original' | 'table'
+
 export function PrintView({ template, entry, company, onClose }: Props) {
   const computed = useFormCalculation(template.fields, entry.field_values)
   const sections = [...new Set(template.fields.map((f) => f.section))]
+  const hasBbox = template.fields.some((f) => f.bbox)
+  const [mode, setMode] = useState<Mode>(hasBbox ? 'original' : 'table')
+  const [imgUrl, setImgUrl] = useState<string | null>(null)
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null)
+  const [imgLoading, setImgLoading] = useState(false)
+  const [imgError, setImgError] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -19,74 +27,80 @@ export function PrintView({ template, entry, company, onClose }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
+  // Load PDF page image when in original mode
+  useEffect(() => {
+    if (mode !== 'original') return
+    setImgLoading(true)
+    setImgError(null)
+    let objUrl: string | null = null
+    fetch(`/api/forms/${template.id}/page-image?scale=2`)
+      .then((r) => {
+        if (!r.ok) throw new Error('image fetch failed')
+        return r.blob()
+      })
+      .then((blob) => {
+        objUrl = URL.createObjectURL(blob)
+        const img = new Image()
+        img.onload = () => {
+          setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
+          setImgUrl(objUrl)
+          setImgLoading(false)
+        }
+        img.src = objUrl!
+      })
+      .catch((e: Error) => {
+        setImgLoading(false)
+        setImgError(e.message || '서식 이미지를 불러올 수 없습니다')
+      })
+    return () => { if (objUrl) URL.revokeObjectURL(objUrl) }
+  }, [mode, template.id])
+
   return (
     <div style={s.overlay}>
+      {/* Toolbar */}
       <div style={s.toolbar} className="no-print">
         <span style={s.toolbarTitle}>인쇄 미리보기</span>
+        <div style={s.toolbarCenter}>
+          <button
+            style={{ ...s.modeBtn, ...(mode === 'original' ? s.modeBtnActive : {}) }}
+            onClick={() => setMode('original')}
+          >
+            원본 서식{!hasBbox && <span style={s.noBboxBadge}>위치 없음</span>}
+          </button>
+          <button
+            style={{ ...s.modeBtn, ...(mode === 'table' ? s.modeBtnActive : {}) }}
+            onClick={() => setMode('table')}
+          >
+            표 형식
+          </button>
+        </div>
         <div style={s.toolbarActions}>
           <button style={s.printBtn} onClick={() => window.print()}>🖨 인쇄</button>
           <button style={s.closeBtn} onClick={onClose}>닫기</button>
         </div>
       </div>
 
-      <div style={s.tableScroll}>
-        <div style={s.page} id="print-area">
-          <div style={s.formHeader}>
-            <div style={s.formCodeBox}>
-              <span style={s.formCodeLabel}>별지</span>
-              <span style={s.formCode}>{template.form_code}</span>
-            </div>
-            <h1 style={s.formTitle}>{template.form_name}</h1>
-            <div style={s.versionBox}>서식버전: {template.version_tag}</div>
-          </div>
-          <table style={s.metaTable}>
-            <tbody>
-              <tr>
-                <td style={s.metaLabel}>사업연도</td>
-                <td style={s.metaValue}>
-                  {entry.fiscal_year_from && entry.fiscal_year_to
-                    ? `${entry.fiscal_year_from} ~ ${entry.fiscal_year_to}`
-                    : entry.fiscal_year_from || '—'}
-                </td>
-                <td style={s.metaLabel}>법인명</td>
-                <td style={s.metaValue}>{company?.name || '—'}</td>
-                <td style={s.metaLabel}>사업자등록번호</td>
-                <td style={s.metaValue}>{company?.business_reg_no || '—'}</td>
-                <td style={s.metaLabel}>신고구분</td>
-                <td style={s.metaValue}>{entry.status === 'final' ? '확정' : '임시'}</td>
-              </tr>
-            </tbody>
-          </table>
-          {sections.map((section) => {
-            const sectionFields = template.fields.filter((f) => f.section === section)
-            return (
-              <div key={section} style={s.section}>
-                <div style={s.sectionHeader}>{section}</div>
-                <table style={s.fieldTable}>
-                  <tbody>
-                    {sectionFields.map((field, i) => {
-                      const val = computed[field.id]
-                      const isCalc = field.type === 'calculated'
-                      return (
-                        <tr key={field.id} style={i % 2 === 0 ? s.rowEven : s.rowOdd}>
-                          <td style={s.cellNum}>{field.id}</td>
-                          <td style={s.cellLabel}>{field.label}</td>
-                          <td style={isCalc ? s.cellCalcValue : s.cellValue}>
-                            {val != null ? val.toLocaleString('ko-KR') : ''}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })}
-          <div style={s.footer}>
-            이 신고서는 「법인세법」에 따라 작성되었습니다. &nbsp;·&nbsp; iTax PoC
-          </div>
-        </div>
-      </div>
+      {/* Content */}
+      {mode === 'original' ? (
+        <OverlayView
+          template={template}
+          computed={computed}
+          imgUrl={imgUrl}
+          imgSize={imgSize}
+          loading={imgLoading}
+          hasBbox={hasBbox}
+          imgError={imgError}
+          onSwitchToTable={() => setMode('table')}
+        />
+      ) : (
+        <TableView
+          template={template}
+          entry={entry}
+          company={company}
+          computed={computed}
+          sections={sections}
+        />
+      )}
 
       <style>{`
         @media print {
@@ -95,6 +109,178 @@ export function PrintView({ template, entry, company, onClose }: Props) {
           .no-print { display: none !important; }
         }
       `}</style>
+    </div>
+  )
+}
+
+/* ── Overlay view ── */
+function OverlayView({
+  template, computed, imgUrl, imgSize, loading, hasBbox, imgError, onSwitchToTable,
+}: {
+  template: FormTemplate
+  computed: Record<string, number | null>
+  imgUrl: string | null
+  imgSize: { w: number; h: number } | null
+  loading: boolean
+  hasBbox: boolean
+  imgError: string | null
+  onSwitchToTable: () => void
+}) {
+  if (loading) {
+    return (
+      <div style={s.centered}>
+        <div style={s.loadingText}>서식 이미지 로딩 중...</div>
+      </div>
+    )
+  }
+  if (imgError) {
+    return (
+      <div style={s.centered}>
+        <p style={s.msgText}>
+          서식 이미지 로드 실패:<br />
+          <code style={{ fontSize: 11, color: '#dc2626' }}>{imgError}</code>
+        </p>
+      </div>
+    )
+  }
+  if (!imgUrl || !imgSize) {
+    return (
+      <div style={s.centered}>
+        <div style={s.loadingText}>서식 이미지 준비 중...</div>
+      </div>
+    )
+  }
+
+  if (!hasBbox) {
+    return (
+      <div style={s.centered}>
+        <div style={s.noBboxBox}>
+          <div style={s.noBboxTitle}>필드 위치 정보 없음</div>
+          <p style={s.noBboxMsg}>
+            이 서식은 필드 위치가 설정되지 않았습니다.<br />
+            서식을 다시 업로드하거나 수식 편집기에서 위치를 설정하세요.
+          </p>
+          <button style={s.switchBtn} onClick={onSwitchToTable}>
+            표 형식으로 보기 →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const displayW = Math.min(900, imgSize.w / 2) // divide by 2 because scale=2
+  const scale = displayW / imgSize.w
+  const displayH = imgSize.h * scale
+
+  return (
+    <div style={s.overlayScroll} id="print-area">
+      <div style={{ position: 'relative', width: displayW, height: displayH, margin: '24px auto' }}>
+        <img src={imgUrl} style={{ width: displayW, height: displayH, display: 'block' }} alt="form" />
+        {template.fields
+          .filter((f) => f.bbox && f.bbox.page === 0)
+          .map((f) => {
+            const bbox = f.bbox!
+            const val = computed[f.id]
+            if (val == null) return null
+            return (
+              <div
+                key={f.id}
+                style={{
+                  position: 'absolute',
+                  left: bbox.x * displayW,
+                  top: bbox.y * displayH,
+                  width: bbox.w * displayW,
+                  height: bbox.h * displayH,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  paddingRight: 4,
+                  fontSize: Math.max(8, bbox.h * displayH * 0.6),
+                  color: f.type === 'calculated' ? '#1d4ed8' : '#0f172a',
+                  fontWeight: f.type === 'calculated' ? 700 : 400,
+                  fontFamily: "'Malgun Gothic', monospace",
+                  pointerEvents: 'none',
+                  overflow: 'hidden',
+                  lineHeight: 1,
+                }}
+              >
+                {val.toLocaleString('ko-KR')}
+              </div>
+            )
+          })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Table view ── */
+function TableView({
+  template, entry, company, computed, sections,
+}: {
+  template: FormTemplate
+  entry: FormEntry
+  company: Company | null
+  computed: Record<string, number | null>
+  sections: string[]
+}) {
+  return (
+    <div style={s.tableScroll}>
+      <div style={s.page} id="print-area">
+        <div style={s.formHeader}>
+          <div style={s.formCodeBox}>
+            <span style={s.formCodeLabel}>별지</span>
+            <span style={s.formCode}>{template.form_code}</span>
+          </div>
+          <h1 style={s.formTitle}>{template.form_name}</h1>
+          <div style={s.versionBox}>서식버전: {template.version_tag}</div>
+        </div>
+        <table style={s.metaTable}>
+          <tbody>
+            <tr>
+              <td style={s.metaLabel}>사업연도</td>
+              <td style={s.metaValue}>
+                {entry.fiscal_year_from && entry.fiscal_year_to
+                  ? `${entry.fiscal_year_from} ~ ${entry.fiscal_year_to}`
+                  : entry.fiscal_year_from || '—'}
+              </td>
+              <td style={s.metaLabel}>법인명</td>
+              <td style={s.metaValue}>{company?.name || '—'}</td>
+              <td style={s.metaLabel}>사업자등록번호</td>
+              <td style={s.metaValue}>{company?.business_reg_no || '—'}</td>
+              <td style={s.metaLabel}>신고구분</td>
+              <td style={s.metaValue}>{entry.status === 'final' ? '확정' : '임시'}</td>
+            </tr>
+          </tbody>
+        </table>
+        {sections.map((section) => {
+          const sectionFields = template.fields.filter((f) => f.section === section)
+          return (
+            <div key={section} style={s.section}>
+              <div style={s.sectionHeader}>{section}</div>
+              <table style={s.fieldTable}>
+                <tbody>
+                  {sectionFields.map((field, i) => {
+                    const val = computed[field.id]
+                    const isCalc = field.type === 'calculated'
+                    return (
+                      <tr key={field.id} style={i % 2 === 0 ? s.rowEven : s.rowOdd}>
+                        <td style={s.cellNum}>{field.id}</td>
+                        <td style={s.cellLabel}>{field.label}</td>
+                        <td style={isCalc ? s.cellCalcValue : s.cellValue}>
+                          {val != null ? val.toLocaleString('ko-KR') : ''}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        })}
+        <div style={s.footer}>
+          이 신고서는 「법인세법」에 따라 작성되었습니다. &nbsp;·&nbsp; iTax PoC
+        </div>
+      </div>
     </div>
   )
 }
@@ -109,8 +295,14 @@ const s: Record<string, React.CSSProperties> = {
     padding: '10px 24px', background: '#1e293b', color: '#f1f5f9',
     flexShrink: 0,
   },
-  toolbarTitle: { fontSize: 14, fontWeight: 600 },
-  toolbarActions: { display: 'flex', gap: 8 },
+  toolbarTitle: { fontSize: 14, fontWeight: 600, minWidth: 120 },
+  toolbarCenter: { display: 'flex', gap: 4, background: '#0f172a', borderRadius: 6, padding: 3 },
+  modeBtn: {
+    padding: '5px 14px', background: 'transparent', color: '#94a3b8',
+    border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  },
+  modeBtnActive: { background: '#1d4ed8', color: '#fff' },
+  toolbarActions: { display: 'flex', gap: 8, minWidth: 120, justifyContent: 'flex-end' },
   printBtn: {
     padding: '6px 16px', background: '#1d4ed8', color: '#fff',
     border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 600, fontSize: 13,
@@ -119,6 +311,26 @@ const s: Record<string, React.CSSProperties> = {
     padding: '6px 16px', background: 'transparent', color: '#94a3b8',
     border: '1px solid #475569', borderRadius: 5, cursor: 'pointer', fontSize: 13,
   },
+  centered: {
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  loadingText: { color: '#64748b', fontSize: 14 },
+  msgText: { color: '#64748b', fontSize: 13, textAlign: 'center' as const, lineHeight: 1.8 },
+  noBboxBox: {
+    background: '#fff', borderRadius: 10, padding: '32px 40px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.1)', textAlign: 'center' as const, maxWidth: 400,
+  },
+  noBboxTitle: { fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 12 },
+  noBboxMsg: { fontSize: 13, color: '#64748b', lineHeight: 1.8, margin: '0 0 20px' },
+  noBboxBadge: {
+    marginLeft: 6, fontSize: 9, fontWeight: 700, background: '#f59e0b',
+    color: '#fff', padding: '1px 5px', borderRadius: 4, verticalAlign: 'middle',
+  },
+  switchBtn: {
+    padding: '8px 20px', background: '#1d4ed8', color: '#fff',
+    border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+  },
+  overlayScroll: { flex: 1, overflowY: 'auto' },
   tableScroll: { flex: 1, overflowY: 'auto' },
   page: {
     width: 794, margin: '24px auto', background: '#fff',

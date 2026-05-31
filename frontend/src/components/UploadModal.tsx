@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import type { FormTemplate } from '../types'
+import { BboxAnnotator } from './BboxAnnotator'
 
 interface Props {
   onClose: () => void
@@ -15,9 +16,11 @@ const STEPS = [
 
 const NEW_FORM = '__new__'
 
+type Phase = 'form' | 'uploading' | 'annotate'
+
 export function UploadModal({ onClose, onUploaded }: Props) {
+  const [phase, setPhase] = useState<Phase>('form')
   const [file, setFile] = useState<File | null>(null)
-  const [excelFile, setExcelFile] = useState<File | null>(null)
   const [effectiveFrom, setEffectiveFrom] = useState('')
   const [formCodeHint, setFormCodeHint] = useState(NEW_FORM)
   const [existingForms, setExistingForms] = useState<FormTemplate[]>([])
@@ -26,6 +29,8 @@ export function UploadModal({ onClose, onUploaded }: Props) {
   const [progress, setProgress] = useState<{ page: number; total: number; formName: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [createdForms, setCreatedForms] = useState<FormTemplate[]>([])
+  // The single form to annotate (only for single-form uploads)
+  const [annotateTemplate, setAnnotateTemplate] = useState<FormTemplate | null>(null)
 
   useEffect(() => {
     api.listForms().then(setExistingForms).catch(() => {})
@@ -40,6 +45,7 @@ export function UploadModal({ onClose, onUploaded }: Props) {
     setError(null)
     setProgress(null)
     setCreatedForms([])
+    setPhase('uploading')
 
     try {
       setStep(0)
@@ -47,7 +53,6 @@ export function UploadModal({ onClose, onUploaded }: Props) {
       formData.append('pdf', file)
       formData.append('effective_from', effectiveFrom)
       if (isUpdate) formData.append('form_code_hint', formCodeHint)
-      if (excelFile) formData.append('excel', excelFile)
 
       setStep(1)
       const response = await fetch('/api/forms/upload', { method: 'POST', body: formData })
@@ -76,13 +81,16 @@ export function UploadModal({ onClose, onUploaded }: Props) {
             setProgress(null)
           } else if (event.type === 'done') {
             const forms: FormTemplate[] = event.results ?? []
-            if (forms.length > 1) {
-              setCreatedForms(forms)
+            if (forms.length === 1) {
+              // Single form: proceed to bbox annotation
+              setAnnotateTemplate(forms[0])
+              setPhase('annotate')
               setLoading(false)
               return
             }
-            onUploaded()
-            onClose()
+            // Multi-form: show success list
+            setCreatedForms(forms)
+            setLoading(false)
             return
           } else if (event.type === 'error') {
             throw new Error(event.message)
@@ -91,10 +99,27 @@ export function UploadModal({ onClose, onUploaded }: Props) {
       }
     } catch (e: any) {
       setError(e.message ?? '업로드 실패. 잠시 후 다시 시도해주세요.')
+      setPhase('form')
       setStep(-1)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Annotation complete (saved or skipped)
+  function handleAnnotationDone() {
+    onUploaded()
+    onClose()
+  }
+
+  // Show the BboxAnnotator fullscreen when in annotate phase
+  if (phase === 'annotate' && annotateTemplate) {
+    return (
+      <BboxAnnotator
+        template={annotateTemplate}
+        onDone={handleAnnotationDone}
+      />
+    )
   }
 
   return (
@@ -148,18 +173,6 @@ export function UploadModal({ onClose, onUploaded }: Props) {
         </label>
 
         <label style={styles.label}>
-          한컴 Excel 내보내기 <span style={styles.optionalBadge}>선택사항 — 원본 서식 오버레이 활성화</span>
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            style={styles.fileInput}
-            disabled={loading}
-            onChange={(e) => setExcelFile(e.target.files?.[0] ?? null)}
-          />
-          {excelFile && <span style={styles.excelHint}>✓ {excelFile.name}</span>}
-        </label>
-
-        <label style={styles.label}>
           적용 시작일 (사업연도 기준)
           <input
             type="date"
@@ -203,6 +216,9 @@ export function UploadModal({ onClose, onUploaded }: Props) {
                 <span style={styles.multiSuccessVer}>v{f.version_tag}</span>
               </div>
             ))}
+            <div style={styles.multiSuccessNote}>
+              필드 위치는 각 서식의 수식 편집기에서 설정할 수 있습니다.
+            </div>
           </div>
         )}
 
@@ -266,7 +282,6 @@ const styles: Record<string, any> = {
     background: 'var(--c-meta-label-bg)', padding: '1px 6px',
     borderRadius: 4, border: '1px solid var(--c-card-border)',
   },
-  excelHint: { fontSize: 11, color: 'var(--c-success)', marginTop: 2 },
   input: { padding: '8px 10px', border: '1px solid var(--c-input-border)', borderRadius: 6, fontSize: 14, background: 'var(--c-input-bg)', color: 'var(--c-text-primary)' },
   progress: {
     margin: '16px 0', padding: '16px', background: 'var(--c-form-bg)',
@@ -293,6 +308,7 @@ const styles: Record<string, any> = {
   multiSuccessCode: { color: 'var(--c-text-secondary)', fontWeight: 600, flexShrink: 0 },
   multiSuccessName: { flex: 1, color: 'var(--c-text-primary)' },
   multiSuccessVer: { color: 'var(--c-text-muted)', flexShrink: 0 },
+  multiSuccessNote: { fontSize: 11, color: 'var(--c-text-muted)', marginTop: 4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 },
   btnPrimary: {
     padding: '9px 22px', background: 'var(--c-accent)', color: 'var(--c-accent-fg)',

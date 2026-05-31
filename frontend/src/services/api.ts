@@ -20,6 +20,12 @@ export const api = {
   getForm: (id: string) => request<FormTemplate>(`/forms/${id}`),
   getVersions: (formCode: string) =>
     request<FormTemplate[]>(`/forms/${formCode}/versions`),
+  patchFields: (id: string, fields: unknown[]) =>
+    request<FormTemplate>(`/forms/${id}/fields`, {
+      method: 'PATCH',
+      body: JSON.stringify({ fields }),
+    }),
+
   uploadForm: (file: File, effectiveFrom: string, formCodeHint?: string) => {
     const fd = new FormData()
     fd.append('pdf', file)
