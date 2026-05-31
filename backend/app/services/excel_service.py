@@ -171,7 +171,8 @@ def extract_bbox_from_excel(
                                         best_col = mr.min_col
                                         best_range = mr
                         if best_range:
-                            field_num_to_bbox[num] = merged_bbox(best_range)
+                            # Store as array — a field can appear in multiple panels
+                            field_num_to_bbox[num] = [merged_bbox(best_range)]
 
         updated = []
         for field in fields:

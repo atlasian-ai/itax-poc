@@ -14,7 +14,7 @@ export interface FieldDefinition {
   formula: string | null
   allow_negative: boolean
   added_in: string | null
-  bbox?: FieldBbox | null
+  bbox?: FieldBbox[] | null   // array — same field can appear in multiple panels
 }
 
 export interface MigrationMap {

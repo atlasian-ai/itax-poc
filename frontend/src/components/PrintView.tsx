@@ -14,7 +14,12 @@ type Mode = 'original' | 'table'
 export function PrintView({ template, entry, company, onClose }: Props) {
   const computed = useFormCalculation(template.fields, entry.field_values)
   const sections = [...new Set(template.fields.map((f) => f.section))]
-  const hasBbox = template.fields.some((f) => f.bbox)
+  // Normalise legacy single-bbox object to array
+  const normBbox = (f: typeof template.fields[0]) => {
+    if (!f.bbox) return []
+    return Array.isArray(f.bbox) ? f.bbox : [f.bbox]
+  }
+  const hasBbox = template.fields.some((f) => normBbox(f).length > 0)
   const [mode, setMode] = useState<Mode>(hasBbox ? 'original' : 'table')
   const [imgUrl, setImgUrl] = useState<string | null>(null)
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null)
@@ -90,6 +95,7 @@ export function PrintView({ template, entry, company, onClose }: Props) {
           loading={imgLoading}
           hasBbox={hasBbox}
           imgError={imgError}
+          normBbox={normBbox}
           onSwitchToTable={() => setMode('table')}
         />
       ) : (
@@ -115,7 +121,7 @@ export function PrintView({ template, entry, company, onClose }: Props) {
 
 /* ── Overlay view ── */
 function OverlayView({
-  template, computed, imgUrl, imgSize, loading, hasBbox, imgError, onSwitchToTable,
+  template, computed, imgUrl, imgSize, loading, hasBbox, imgError, normBbox, onSwitchToTable,
 }: {
   template: FormTemplate
   computed: Record<string, number | null>
@@ -124,6 +130,7 @@ function OverlayView({
   loading: boolean
   hasBbox: boolean
   imgError: string | null
+  normBbox: (f: FormTemplate['fields'][0]) => import('../types').FieldBbox[]
   onSwitchToTable: () => void
 }) {
   if (loading) {
@@ -176,15 +183,14 @@ function OverlayView({
     <div style={s.overlayScroll} id="print-area">
       <div style={{ position: 'relative', width: displayW, height: displayH, margin: '24px auto' }}>
         <img src={imgUrl} style={{ width: displayW, height: displayH, display: 'block' }} alt="form" />
-        {template.fields
-          .filter((f) => f.bbox && f.bbox.page === 0)
-          .map((f) => {
-            const bbox = f.bbox!
-            const val = computed[f.id]
-            if (val == null) return null
-            return (
+        {template.fields.flatMap((f) => {
+          const val = computed[f.id]
+          if (val == null) return []
+          return normBbox(f)
+            .filter((bbox) => bbox.page === 0)
+            .map((bbox, bi) => (
               <div
-                key={f.id}
+                key={`${f.id}-${bi}`}
                 style={{
                   position: 'absolute',
                   left: bbox.x * displayW,
@@ -206,8 +212,8 @@ function OverlayView({
               >
                 {val.toLocaleString('ko-KR')}
               </div>
-            )
-          })}
+            ))
+        })}
       </div>
     </div>
   )
