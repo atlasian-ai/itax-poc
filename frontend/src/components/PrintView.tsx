@@ -20,7 +20,9 @@ export function PrintView({ template, entry, company, onClose }: Props) {
     return Array.isArray(f.bbox) ? f.bbox : [f.bbox]
   }
   const hasBbox = template.fields.some((f) => normBbox(f).length > 0)
-  const [mode, setMode] = useState<Mode>(hasBbox ? 'original' : 'table')
+  const isTabular = template.form_type === 'tabular'
+  // Tabular forms default to table — overlay can't render multi-row data
+  const [mode, setMode] = useState<Mode>(!isTabular && hasBbox ? 'original' : 'table')
   const [imgUrl, setImgUrl] = useState<string | null>(null)
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null)
   const [imgLoading, setImgLoading] = useState(false)
@@ -94,6 +96,7 @@ export function PrintView({ template, entry, company, onClose }: Props) {
           imgSize={imgSize}
           loading={imgLoading}
           hasBbox={hasBbox}
+          isTabular={isTabular}
           imgError={imgError}
           normBbox={normBbox}
           onSwitchToTable={() => setMode('table')}
@@ -121,7 +124,7 @@ export function PrintView({ template, entry, company, onClose }: Props) {
 
 /* ── Overlay view ── */
 function OverlayView({
-  template, computed, imgUrl, imgSize, loading, hasBbox, imgError, normBbox, onSwitchToTable,
+  template, computed, imgUrl, imgSize, loading, hasBbox, isTabular, imgError, normBbox, onSwitchToTable,
 }: {
   template: FormTemplate
   computed: Record<string, number | null>
@@ -129,6 +132,7 @@ function OverlayView({
   imgSize: { w: number; h: number } | null
   loading: boolean
   hasBbox: boolean
+  isTabular: boolean
   imgError: string | null
   normBbox: (f: FormTemplate['fields'][0]) => import('../types').FieldBbox[]
   onSwitchToTable: () => void
@@ -154,6 +158,23 @@ function OverlayView({
     return (
       <div style={s.centered}>
         <div style={s.loadingText}>서식 이미지 준비 중...</div>
+      </div>
+    )
+  }
+
+  // Tabular forms: show blank form image with a note — row data can't be overlaid
+  if (isTabular && imgUrl && imgSize) {
+    const displayW = Math.min(900, imgSize.w / 2)
+    const displayH = imgSize.h * (displayW / imgSize.w)
+    return (
+      <div style={s.overlayScroll}>
+        <div style={{ ...s.noBboxBox, margin: '16px auto', maxWidth: 'none', width: displayW, padding: '10px 0 0', textAlign: 'left' }}>
+          <div style={{ padding: '6px 16px 12px', background: '#fef9c3', borderBottom: '1px solid #fde68a', fontSize: 12, color: '#92400e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>행별 데이터는 원본 서식에 오버레이할 수 없습니다. 데이터 확인은 <strong>표 형식</strong> 탭을 사용하세요.</span>
+            <button style={s.switchBtn} onClick={onSwitchToTable}>표 형식으로 보기 →</button>
+          </div>
+          <img src={imgUrl} style={{ width: displayW, height: displayH, display: 'block' }} alt="form" />
+        </div>
       </div>
     )
   }
