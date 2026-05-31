@@ -46,7 +46,6 @@ export function UploadModal({ onClose, onUploaded }: Props) {
     setLoading(true)
     setError(null)
     setProgress(null)
-    setCreatedForms([])
     setPhase('uploading')
 
     try {
