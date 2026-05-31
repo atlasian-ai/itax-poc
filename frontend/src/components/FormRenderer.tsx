@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Company, FormTemplate, FormEntry } from '../types'
 import { useFormCalculation } from '../hooks/useFormCalculation'
 import { PrintView } from './PrintView'
+import { TabularRenderer } from './TabularRenderer'
 import { api } from '../services/api'
 
 interface Props {
@@ -14,10 +15,24 @@ interface Props {
 }
 
 export function FormRenderer({ template, entry, company, fiscalYearFrom, fiscalYearTo, onSaved }: Props) {
-  const [values, setValues] = useState<Record<string, number | null>>(
-    entry?.field_values ?? {}
-  )
+  const isTabular = template.form_type === 'tabular'
+
+  // ── Flat form state ──────────────────────────────────────────
+  const [values, setValues] = useState<Record<string, number | null>>(() => {
+    if (isTabular) return {}
+    const fv = entry?.field_values
+    return (fv && !('_rows' in fv) ? fv : {}) as Record<string, number | null>
+  })
   const [rawInputs, setRawInputs] = useState<Record<string, string>>({})
+
+  // ── Tabular form state ───────────────────────────────────────
+  type Row = Record<string, number | string | null>
+  const [tabularRows, setTabularRows] = useState<Row[]>(() => {
+    if (!isTabular) return []
+    const fv = entry?.field_values
+    return (fv && '_rows' in fv ? fv._rows : []) as Row[]
+  })
+
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [showPrint, setShowPrint] = useState(false)
@@ -46,7 +61,7 @@ export function FormRenderer({ template, entry, company, fiscalYearFrom, fiscalY
         company_id: company?.id ?? null,
         fiscal_year_from: fiscalYearFrom || null,
         fiscal_year_to: fiscalYearTo || null,
-        field_values: computed,
+        field_values: isTabular ? { _rows: tabularRows } : computed,
         status,
       }
       const saved = entry
@@ -60,6 +75,7 @@ export function FormRenderer({ template, entry, company, fiscalYearFrom, fiscalY
     }
   }
 
+  const printFieldValues = isTabular ? { _rows: tabularRows } : computed
   const printEntry: FormEntry = {
     ...(entry ?? {
       id: '',
@@ -67,12 +83,12 @@ export function FormRenderer({ template, entry, company, fiscalYearFrom, fiscalY
       company_id: company?.id ?? null,
       fiscal_year_from: fiscalYearFrom || null,
       fiscal_year_to: fiscalYearTo || null,
-      field_values: computed,
+      field_values: printFieldValues,
       status: 'draft' as const,
       created_at: '',
       updated_at: '',
     }),
-    field_values: computed,
+    field_values: printFieldValues,
     fiscal_year_from: fiscalYearFrom || null,
     fiscal_year_to: fiscalYearTo || null,
   }
@@ -127,8 +143,19 @@ export function FormRenderer({ template, entry, company, fiscalYearFrom, fiscalY
         </div>
       </div>
 
-      {/* Fields grouped by section */}
-      {sections.map((section) => {
+      {/* Tabular form */}
+      {isTabular && (
+        <div style={{ padding: '0 28px 28px' }}>
+          <TabularRenderer
+            template={template}
+            initialRows={tabularRows}
+            onChange={setTabularRows}
+          />
+        </div>
+      )}
+
+      {/* Flat form: fields grouped by section */}
+      {!isTabular && sections.map((section) => {
         const sectionFields = template.fields.filter((f) => f.section === section)
         return (
           <div key={section} style={styles.section}>

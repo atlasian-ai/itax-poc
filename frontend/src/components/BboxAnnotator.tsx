@@ -17,7 +17,7 @@ function normaliseBbox(raw: unknown): FieldBbox[] {
 }
 
 export function BboxAnnotator({ template, formIndex = 0, totalForms = 1, onDone }: Props) {
-  const [page, setPage] = useState(0)
+  const [page, setPage] = useState(template.page_start ?? 0)
   const [imgUrl, setImgUrl] = useState<string | null>(null)
   const [imgLoading, setImgLoading] = useState(true)
   const [hasNextPage, setHasNextPage] = useState(false)

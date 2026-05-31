@@ -18,14 +18,16 @@ _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
 _DETECT_PROMPT = """This PDF may contain one or more Korean NTS tax forms plus instruction/explanation pages (작성요령, 유의사항).
 
 Return ONLY a compact JSON object (no markdown):
-{"forms":[{"form_code":"별지제3호서식","form_name":"법인세 과세표준 및 세액조정계산서","version_tag":"2016.3.7","pages":[0]},
-          {"form_code":"별지제4호서식","form_name":"과세표준명세서","version_tag":"2013.2.23","pages":[2]}],
- "instruction_pages":[1,3]}
+{"forms":[{"form_code":"별지제3호서식","form_name":"법인세 과세표준 및 세액조정계산서","version_tag":"2016.3.7","pages":[0],"form_type":"flat"},
+          {"form_code":"별지제4호서식","form_name":"선박표준이익 산출명세서","version_tag":"2013.2.23","pages":[1],"form_type":"tabular"}],
+ "instruction_pages":[2]}
 
 Rules:
 - forms[].pages: 0-indexed page numbers with the actual form table for that form (not instructions).
 - instruction_pages: pages that are instructions/explanations (작성요령, 유의사항, 작성방법) for any form.
 - version_tag: revision date on the form e.g. "2016.3.7". "" if not visible.
+- form_type: "flat" for standard NTS forms where each row is a unique numbered field (one value per field).
+             "tabular" for forms with a repeating row structure where the user enters multiple entries of the same type (e.g., lists of ships, assets, transactions — same column headers repeat per row).
 - A page belongs in instruction_pages if it primarily contains prose text explaining how to fill the form.
 - Return ONLY valid JSON object."""
 
@@ -337,6 +339,8 @@ async def stream_extract_forms(pdf_bytes: bytes):
                 "form_code": form_meta.get("form_code", ""),
                 "form_name": form_meta.get("form_name", ""),
                 "version_tag": form_meta.get("version_tag", ""),
+                "form_type": form_meta.get("form_type", "flat"),
+                "page_start": form_pages[0] if form_pages else 0,
                 "fields": all_fields,
             })
 

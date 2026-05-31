@@ -258,7 +258,46 @@ function TableView({
             </tr>
           </tbody>
         </table>
-        {sections.map((section) => {
+        {/* Tabular form print */}
+        {template.form_type === 'tabular' && (() => {
+          const fv = entry.field_values
+          const rows: Array<Record<string, number | string | null>> =
+            (fv && '_rows' in fv ? fv._rows : []) as Array<Record<string, number | string | null>>
+          return (
+            <div style={s.section}>
+              <table style={{ ...s.fieldTable, tableLayout: 'auto' }}>
+                <thead>
+                  <tr style={{ background: '#1e3a5f' }}>
+                    <th style={{ ...s.cellNum, color: '#fff' }}>번호</th>
+                    {template.fields.map((f) => (
+                      <th key={f.id} style={{ padding: '4px 8px', color: '#fff', fontSize: 10, fontWeight: 700, border: '1px solid #334155', textAlign: 'center' }}>
+                        {f.id} {f.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, ri) => (
+                    <tr key={ri} style={ri % 2 === 0 ? s.rowEven : s.rowOdd}>
+                      <td style={s.cellNum}>{ri + 1}</td>
+                      {template.fields.map((f) => {
+                        const v = row[f.id]
+                        return (
+                          <td key={f.id} style={f.type === 'calculated' ? s.cellCalcValue : s.cellValue}>
+                            {typeof v === 'number' ? v.toLocaleString('ko-KR') : (v ?? '')}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })()}
+
+        {/* Flat form print */}
+        {template.form_type !== 'tabular' && sections.map((section) => {
           const sectionFields = template.fields.filter((f) => f.section === section)
           return (
             <div key={section} style={s.section}>

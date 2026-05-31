@@ -187,6 +187,8 @@ async def _save_forms(
             "pdf_hash": pdf_hash,
             "migration_map": migration_map,
             "excel_url": excel_url,
+            "form_type": extracted.get("form_type", "flat"),
+            "page_start": extracted.get("page_start", 0),
         }
         insert_result = sb.table("form_templates").upsert(row, on_conflict="form_name,version_tag").execute()
         if insert_result.data:

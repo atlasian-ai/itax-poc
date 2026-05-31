@@ -37,6 +37,8 @@ export interface FormTemplate {
   migration_map: MigrationMap | null
   pdf_url: string
   excel_url: string | null
+  form_type: 'flat' | 'tabular'
+  page_start: number
 }
 
 export interface Company {
@@ -52,7 +54,9 @@ export interface FormEntry {
   company_id: string | null
   fiscal_year_from: string | null
   fiscal_year_to: string | null
-  field_values: Record<string, number | null>
+  // flat form: { "01": 1000, ... }
+  // tabular form: { "_rows": [{ "01": "선박A", "02": 5000, ... }, ...] }
+  field_values: Record<string, number | null> | { _rows: Array<Record<string, number | string | null>> }
   status: 'draft' | 'final'
   created_at: string
   updated_at: string
