@@ -18,7 +18,8 @@ export function useFormCalculation(
       for (const field of fields) {
         if (field.type !== 'calculated' || !field.formula) continue
         try {
-          const expr = field.formula.replace(/\b(\d{2})\b/g, (_, id) => {
+          const normalised = field.formula.replace(/×/g, '*').replace(/÷/g, '/')
+          const expr = normalised.replace(/\b(\d+)\b/g, (_, id) => {
             const v = result[id]
             return v == null ? '0' : String(v)
           })

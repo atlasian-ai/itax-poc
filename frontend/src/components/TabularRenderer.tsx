@@ -9,20 +9,22 @@ interface Props {
   onChange: (rows: Row[]) => void
 }
 
-/** Evaluate a formula for a single row, substituting field values from that row. */
+/** Evaluate a formula for a single row — mirrors useFormCalculation hook exactly. */
 function evalRowFormula(formula: string, row: Row): number | null {
   if (!formula) return null
-  let expr = formula
-  // Replace field IDs longest-first to avoid partial replacement
-  const ids = Object.keys(row).sort((a, b) => b.length - a.length)
-  for (const id of ids) {
-    const val = row[id]
-    const num = typeof val === 'number' ? val : (val !== null && val !== '' ? Number(val) : 0)
-    expr = expr.replace(new RegExp('\\b' + id + '\\b', 'g'), String(isNaN(num) ? 0 : num))
-  }
-  if (/[^0-9+\-*/().\s]/.test(expr)) return null
   try {
-    const result = eval(expr) // eslint-disable-line no-eval
+    // Normalise Unicode operators Claude sometimes outputs
+    const normalised = formula
+      .replace(/×/g, '*')
+      .replace(/÷/g, '/')
+    // Replace all \b\d+\b field IDs with their row values (same pattern as useFormCalculation)
+    const expr = normalised.replace(/\b(\d+)\b/g, (_, id) => {
+      const v = row[id]
+      const num = typeof v === 'number' ? v : (v != null && v !== '' ? Number(v) : 0)
+      return String(isNaN(num) ? 0 : num)
+    })
+    // eslint-disable-next-line no-new-func
+    const result = Function('"use strict"; return (' + expr + ')')() as number
     return typeof result === 'number' && isFinite(result) ? result : null
   } catch {
     return null
