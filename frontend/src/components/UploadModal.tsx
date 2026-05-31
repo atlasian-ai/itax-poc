@@ -28,9 +28,11 @@ export function UploadModal({ onClose, onUploaded }: Props) {
   const [step, setStep] = useState<number>(-1)
   const [progress, setProgress] = useState<{ page: number; total: number; formName: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [createdForms, setCreatedForms] = useState<FormTemplate[]>([])
-  // The single form to annotate (only for single-form uploads)
-  const [annotateTemplate, setAnnotateTemplate] = useState<FormTemplate | null>(null)
+  // Queue of forms to annotate one by one
+  const [annotateQueue, setAnnotateQueue] = useState<FormTemplate[]>([])
+  const [annotateTotal, setAnnotateTotal] = useState(0)
+  const annotateTemplate = annotateQueue[0] ?? null
+  const annotateIndex = annotateTotal - annotateQueue.length
 
   useEffect(() => {
     api.listForms().then(setExistingForms).catch(() => {})
@@ -81,15 +83,14 @@ export function UploadModal({ onClose, onUploaded }: Props) {
             setProgress(null)
           } else if (event.type === 'done') {
             const forms: FormTemplate[] = event.results ?? []
-            if (forms.length === 1) {
-              // Single form: proceed to bbox annotation
-              setAnnotateTemplate(forms[0])
+            if (forms.length > 0) {
+              // Always annotate — queue all forms, show one at a time
+              setAnnotateQueue(forms)
+              setAnnotateTotal(forms.length)
               setPhase('annotate')
               setLoading(false)
               return
             }
-            // Multi-form: show success list
-            setCreatedForms(forms)
             setLoading(false)
             return
           } else if (event.type === 'error') {
@@ -106,10 +107,17 @@ export function UploadModal({ onClose, onUploaded }: Props) {
     }
   }
 
-  // Annotation complete (saved or skipped)
+  // Annotation complete for one form — advance to the next, or finish
   function handleAnnotationDone() {
-    onUploaded()
-    onClose()
+    setAnnotateQueue((prev) => {
+      const next = prev.slice(1)
+      if (next.length === 0) {
+        // All forms annotated
+        onUploaded()
+        onClose()
+      }
+      return next
+    })
   }
 
   // Show the BboxAnnotator fullscreen when in annotate phase
@@ -117,6 +125,8 @@ export function UploadModal({ onClose, onUploaded }: Props) {
     return (
       <BboxAnnotator
         template={annotateTemplate}
+        formIndex={annotateIndex}
+        totalForms={annotateTotal}
         onDone={handleAnnotationDone}
       />
     )
@@ -203,43 +213,18 @@ export function UploadModal({ onClose, onUploaded }: Props) {
 
         {error && <p style={styles.error}>{error}</p>}
 
-        {/* Multi-form success screen */}
-        {createdForms.length > 1 && (
-          <div style={styles.multiSuccess}>
-            <div style={styles.multiSuccessTitle}>
-              ✅ {createdForms.length}개 서식이 생성되었습니다
-            </div>
-            {createdForms.map((f) => (
-              <div key={f.id} style={styles.multiSuccessRow}>
-                <span style={styles.multiSuccessCode}>{f.form_code}</span>
-                <span style={styles.multiSuccessName}>{f.form_name}</span>
-                <span style={styles.multiSuccessVer}>v{f.version_tag}</span>
-              </div>
-            ))}
-            <div style={styles.multiSuccessNote}>
-              필드 위치는 각 서식의 수식 편집기에서 설정할 수 있습니다.
-            </div>
-          </div>
-        )}
-
         <div style={styles.actions}>
           <button style={styles.btnSecondary} onClick={onClose} disabled={loading}>
             취소
           </button>
-          {createdForms.length > 1 ? (
-            <button className="btn-accent" style={styles.btnPrimary} onClick={() => { onUploaded(); onClose() }}>
-              완료
-            </button>
-          ) : (
-            <button
-              className="btn-accent"
-              style={{ ...styles.btnPrimary, opacity: (!file || !effectiveFrom || loading) ? 0.6 : 1 }}
-              onClick={handleSubmit}
-              disabled={!file || !effectiveFrom || loading}
-            >
-              {loading ? 'AI 분석 중...' : isUpdate ? '업데이트 업로드' : '업로드'}
-            </button>
-          )}
+          <button
+            className="btn-accent"
+            style={{ ...styles.btnPrimary, opacity: (!file || !effectiveFrom || loading) ? 0.6 : 1 }}
+            onClick={handleSubmit}
+            disabled={!file || !effectiveFrom || loading}
+          >
+            {loading ? 'AI 분석 중...' : isUpdate ? '업데이트 업로드' : '업로드'}
+          </button>
         </div>
       </div>
     </div>
@@ -299,16 +284,6 @@ const styles: Record<string, any> = {
     fontWeight: i === current ? 600 : 400,
   }),
   error: { color: '#dc2626', fontSize: 13, margin: '0 0 12px' },
-  multiSuccess: {
-    margin: '0 0 16px', padding: '14px 16px', background: 'var(--c-accent-subtle-bg)',
-    border: '1px solid var(--c-accent-subtle-border)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8,
-  },
-  multiSuccessTitle: { fontSize: 14, fontWeight: 700, color: 'var(--c-success)', marginBottom: 4 },
-  multiSuccessRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 },
-  multiSuccessCode: { color: 'var(--c-text-secondary)', fontWeight: 600, flexShrink: 0 },
-  multiSuccessName: { flex: 1, color: 'var(--c-text-primary)' },
-  multiSuccessVer: { color: 'var(--c-text-muted)', flexShrink: 0 },
-  multiSuccessNote: { fontSize: 11, color: 'var(--c-text-muted)', marginTop: 4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 },
   btnPrimary: {
     padding: '9px 22px', background: 'var(--c-accent)', color: 'var(--c-accent-fg)',

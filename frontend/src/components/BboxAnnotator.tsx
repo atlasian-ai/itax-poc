@@ -4,10 +4,12 @@ import { api } from '../services/api'
 
 interface Props {
   template: FormTemplate
+  formIndex?: number   // 0-based index in the upload batch
+  totalForms?: number  // total forms in the upload batch
   onDone: () => void
 }
 
-export function BboxAnnotator({ template, onDone }: Props) {
+export function BboxAnnotator({ template, formIndex = 0, totalForms = 1, onDone }: Props) {
   const [page, setPage] = useState(0)
   const [imgUrl, setImgUrl] = useState<string | null>(null)
   const [imgLoading, setImgLoading] = useState(true)
@@ -135,6 +137,9 @@ export function BboxAnnotator({ template, onDone }: Props) {
       <div style={s.toolbar}>
         <div style={s.toolbarLeft}>
           <span style={s.toolbarTitle}>서식 영역 표시</span>
+          {totalForms > 1 && (
+            <span style={s.formIndexChip}>{formIndex + 1} / {totalForms}</span>
+          )}
           <span style={s.toolbarSub}>{template.form_name}</span>
         </div>
         <div style={s.toolbarCenter}>
@@ -309,6 +314,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   toolbarLeft: { display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 },
   toolbarTitle: { fontSize: 14, fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap' },
+  formIndexChip: { fontSize: 11, background: '#475569', color: '#cbd5e1', padding: '2px 8px', borderRadius: 10, flexShrink: 0 },
   toolbarSub: { fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   toolbarCenter: { display: 'flex', alignItems: 'center', gap: 16 },
   progressChip: {
