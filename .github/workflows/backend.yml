@@ -47,14 +47,17 @@ jobs:
         uses: azure/container-apps-deploy-action@v1
         with:
           acrName: ""  # intentionally empty — using ghcr.io
-          containerAppName: korean-tax-backend
-          resourceGroup: korean-tax-rg
+          containerAppName: itax-backend
+          resourceGroup: itax-rg
           imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           environmentVariables: |
             ANTHROPIC_API_KEY=secretref:anthropic-api-key
             SUPABASE_URL=secretref:supabase-url
             SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key
             CORS_ORIGINS=secretref:cors-origins
+            ADMIN_EMAIL=secretref:admin-email
+            ADMIN_PASSWORD=secretref:admin-password
+            JWT_SECRET=secretref:jwt-secret
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
