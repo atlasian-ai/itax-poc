@@ -41,7 +41,7 @@ export function PrintView({ template, entry, company, onClose }: Props) {
     setImgLoading(true)
     setImgError(null)
     let objUrl: string | null = null
-    fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/forms/${template.id}/page-image?page=${template.page_start ?? 0}&scale=2`, {
+    fetch(`${import.meta.env.VITE_API_BASE_URL ?? '/api'}/forms/${template.id}/page-image?page=${template.page_start ?? 0}&scale=2`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('itax_token') ?? ''}` },
       })
       .then((r) => {

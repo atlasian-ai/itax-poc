@@ -1,8 +1,8 @@
 import type { FormTemplate, FormEntry, Company } from '../types'
 
-// In production VITE_API_BASE_URL points to the Azure Container App backend.
-// In local dev it's empty and the Vite proxy handles /api → localhost:8000.
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api'
+// In production VITE_API_BASE_URL is the full backend URL (no /api suffix).
+// In local dev it's empty and the Vite proxy rewrites /api → localhost:8000.
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 const TOKEN_KEY = 'itax_token'
 
