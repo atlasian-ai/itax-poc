@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write  # needed to push to ghcr.io
+      packages: write
+      id-token: write  # needed for Azure OIDC login
 
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +25,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}  # auto-provided, no setup needed
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -43,10 +44,17 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
-          acrName: ""  # intentionally empty — using ghcr.io
+          acrName: ""
           containerAppName: itax-backend
           resourceGroup: itax-rg
           imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -58,7 +66,3 @@ jobs:
             ADMIN_EMAIL=secretref:admin-email
             ADMIN_PASSWORD=secretref:admin-password
             JWT_SECRET=secretref:jwt-secret
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

@@ -56,7 +56,7 @@ export function UploadModal({ onClose, onUploaded }: Props) {
       if (isUpdate) formData.append('form_code_hint', formCodeHint)
 
       setStep(1)
-      const response = await fetch('/api/forms/upload', { method: 'POST', body: formData })
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/forms/upload`, { method: 'POST', body: formData })
       if (!response.ok) {
         const err = await response.json().catch(() => ({}))
         throw new Error(err.detail || `서버 오류 ${response.status}`)
