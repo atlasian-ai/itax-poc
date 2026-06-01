@@ -9,15 +9,7 @@ from app.routers.auth import decode_token
 
 app = FastAPI(title="Korean Tax PoC API", version="0.1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ── Auth middleware ───────────────────────────────────────────────────────────
+# ── Auth middleware — must be added BEFORE CORSMiddleware so CORS runs first ──
 _PUBLIC_PATHS = {"/auth/login", "/health", "/docs", "/openapi.json", "/redoc"}
 
 @app.middleware("http")
@@ -26,12 +18,29 @@ async def require_auth(request: Request, call_next):
         return await call_next(request)
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        return JSONResponse(status_code=401, content={"detail": "로그인이 필요합니다"})
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "로그인이 필요합니다"},
+            headers={"Access-Control-Allow-Origin": request.headers.get("origin", "*")},
+        )
     try:
         decode_token(auth_header.split(" ", 1)[1])
     except JWTError:
-        return JSONResponse(status_code=401, content={"detail": "세션이 만료되었습니다. 다시 로그인해주세요."})
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "세션이 만료되었습니다. 다시 로그인해주세요."},
+            headers={"Access-Control-Allow-Origin": request.headers.get("origin", "*")},
+        )
     return await call_next(request)
+
+# ── CORS middleware ────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth.router)
