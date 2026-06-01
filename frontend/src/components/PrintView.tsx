@@ -12,7 +12,8 @@ interface Props {
 type Mode = 'original' | 'table'
 
 export function PrintView({ template, entry, company, onClose }: Props) {
-  const computed = useFormCalculation(template.fields, entry.field_values)
+  const flatValues = ('_rows' in entry.field_values ? {} : entry.field_values) as Record<string, number | null>
+  const computed = useFormCalculation(template.fields, flatValues)
   const sections = [...new Set(template.fields.map((f) => f.section))]
   // Normalise legacy single-bbox object to array
   const normBbox = (f: typeof template.fields[0]) => {
