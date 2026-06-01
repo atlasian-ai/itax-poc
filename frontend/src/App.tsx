@@ -6,7 +6,8 @@ import { UploadModal } from './components/UploadModal'
 import { BulkUploadModal } from './components/BulkUploadModal'
 import { CompanyModal } from './components/CompanyModal'
 import { TaxYearModal } from './components/TaxYearModal'
-import { api } from './services/api'
+import { LoginPage } from './components/LoginPage'
+import { api, auth } from './services/api'
 import type { Company, FormTemplate, FormEntry } from './types'
 
 type MainView = 'empty' | 'pick-forms' | 'form' | 'editor'
@@ -20,6 +21,16 @@ const THEME_CYCLE: Theme[] = ['light', 'dark', 'professional']
 const THEME_LABEL: Record<Theme, string> = { light: '☀', dark: '🌙', professional: '★' }
 
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(() => auth.isLoggedIn())
+
+  if (!loggedIn) {
+    return <LoginPage onLogin={() => setLoggedIn(true)} />
+  }
+
+  return <AuthenticatedApp />
+}
+
+function AuthenticatedApp() {
   const [theme, setTheme] = useState<Theme>(() =>
     (localStorage.getItem('itax_theme') as Theme) ?? 'light'
   )
@@ -188,6 +199,9 @@ export default function App() {
             <button style={{ ...s.uploadBtn, background: 'var(--c-sidebar-bg)' }} onClick={() => setShowBulkUpload(true)}>일괄 업로드</button>
             <button style={s.themeBtn} onClick={toggleTheme} title={`현재: ${theme} → 다음 테마`}>
               {THEME_LABEL[theme]}
+            </button>
+            <button style={s.logoutBtn} onClick={auth.logout} title="로그아웃">
+              로그아웃
             </button>
           </div>
         </header>
@@ -379,6 +393,10 @@ const s: Record<string, React.CSSProperties> = {
   themeBtn: {
     padding: '6px 10px', background: 'var(--c-meta-label-bg)', color: 'var(--c-text-primary)',
     border: '1px solid var(--c-card-border)', borderRadius: 6, cursor: 'pointer', fontSize: 15, lineHeight: 1,
+  },
+  logoutBtn: {
+    padding: '6px 12px', background: 'transparent', color: 'var(--c-text-muted)',
+    border: '1px solid var(--c-card-border)', borderRadius: 6, cursor: 'pointer', fontSize: 12,
   },
   main: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
   loadingScreen: {

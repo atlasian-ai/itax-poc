@@ -2,11 +2,50 @@ import type { FormTemplate, FormEntry, Company } from '../types'
 
 const BASE = '/api'
 
+const TOKEN_KEY = 'itax_token'
+
+export const auth = {
+  getToken: () => localStorage.getItem(TOKEN_KEY),
+  setToken: (t: string) => localStorage.setItem(TOKEN_KEY, t),
+  clearToken: () => localStorage.removeItem(TOKEN_KEY),
+  isLoggedIn: () => !!localStorage.getItem(TOKEN_KEY),
+
+  async login(email: string, password: string): Promise<string> {
+    const res = await fetch(`${BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || '로그인에 실패했습니다')
+    }
+    const data = await res.json()
+    auth.setToken(data.token)
+    return data.email
+  },
+
+  logout() {
+    auth.clearToken()
+    window.location.reload()
+  },
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = auth.getToken()
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
     ...init,
   })
+  if (res.status === 401) {
+    auth.clearToken()
+    window.location.reload()
+    throw new Error('세션이 만료되었습니다')
+  }
   if (!res.ok) {
     const err = await res.text()
     throw new Error(err || res.statusText)
@@ -25,15 +64,17 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ fields }),
     }),
-
   uploadForm: (file: File, effectiveFrom: string, formCodeHint?: string) => {
     const fd = new FormData()
     fd.append('pdf', file)
     fd.append('effective_from', effectiveFrom)
     if (formCodeHint) fd.append('form_code_hint', formCodeHint)
-    return fetch(`${BASE}/forms/upload`, { method: 'POST', body: fd }).then(
-      (r) => r.json()
-    )
+    const token = auth.getToken()
+    return fetch(`${BASE}/forms/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+    }).then((r) => r.json())
   },
 
   // Companies
