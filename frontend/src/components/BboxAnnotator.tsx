@@ -48,14 +48,18 @@ export function BboxAnnotator({ template, formIndex = 0, totalForms = 1, onDone 
     setImgLoading(true)
     setHasNextPage(false)
 
-    fetch(`/api/forms/${template.id}/page-image?page=${page}&scale=2`)
+    fetch(`/api/forms/${template.id}/page-image?page=${page}&scale=2`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('itax_token') ?? ''}` },
+      })
       .then((r) => { if (!r.ok) throw new Error(); return r.blob() })
       .then((blob) => {
         if (cancelled) return
         const url = URL.createObjectURL(blob)
         setImgUrl(url)
         setImgLoading(false)
-        fetch(`/api/forms/${template.id}/page-image?page=${page + 1}&scale=1`)
+        fetch(`/api/forms/${template.id}/page-image?page=${page + 1}&scale=1`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('itax_token') ?? ''}` },
+          })
           .then((r) => { if (!cancelled) setHasNextPage(r.ok) })
           .catch(() => {})
       })

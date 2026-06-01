@@ -40,7 +40,9 @@ export function PrintView({ template, entry, company, onClose }: Props) {
     setImgLoading(true)
     setImgError(null)
     let objUrl: string | null = null
-    fetch(`/api/forms/${template.id}/page-image?page=${template.page_start ?? 0}&scale=2`)
+    fetch(`/api/forms/${template.id}/page-image?page=${template.page_start ?? 0}&scale=2`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('itax_token') ?? ''}` },
+      })
       .then((r) => {
         if (!r.ok) throw new Error('image fetch failed')
         return r.blob()
